@@ -1,0 +1,92 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "php-app.fullname" . }}
+  labels:
+    {{- include "php-app.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "php-app.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "php-app.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+
+      # Init container copies app files from php image into shared volume
+      initContainers:
+        - name: init-app
+          image: "{{ .Values.php.image.repository }}:{{ .Values.php.image.tag }}"
+          imagePullPolicy: {{ .Values.php.image.pullPolicy }}
+          command: ["sh", "-c"]
+          args:
+            - >
+              set -e;
+              rm -rf /shared/*;
+              cp -R {{ .Values.app.workdir }}/. /shared/;
+          volumeMounts:
+            - name: app-shared
+              mountPath: /shared
+
+      containers:
+        # NGINX container (serves HTTP)
+        - name: nginx
+          image: "{{ .Values.nginx.image.repository }}:{{ .Values.nginx.image.tag }}"
+          imagePullPolicy: {{ .Values.nginx.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/conf.d/default.conf
+              subPath: default.conf
+            - name: app-shared
+              mountPath: {{ .Values.app.workdir }}
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 20
+            periodSeconds: 20
+
+        # PHP-FPM container
+        - name: php-fpm
+          image: "{{ .Values.php.image.repository }}:{{ .Values.php.image.tag }}"
+          imagePullPolicy: {{ .Values.php.image.pullPolicy }}
+          ports:
+            - name: fpm
+              containerPort: 9000
+              protocol: TCP
+          volumeMounts:
+            - name: app-shared
+              mountPath: {{ .Values.app.workdir }}
+            - name: env-file
+              mountPath: {{ .Values.app.workdir }}/.env
+              subPath: .env
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: {{ include "php-app.fullname" . }}-nginx
+
+        - name: app-shared
+          emptyDir: {}
+
+        - name: env-file
+          secret:
+            secretName: php-app-env

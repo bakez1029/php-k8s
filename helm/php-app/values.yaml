@@ -1,0 +1,29 @@
+replicaCount: 1
+
+php:
+  image:
+    repository: ghcr.io/bakez1029/php-fpm-nginx-lab/php-app
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+nginx:
+  image:
+    repository: nginx
+    tag: "1.27-alpine"
+    pullPolicy: IfNotPresent
+
+# If GHCR is private, set this:
+imagePullSecrets: []
+# example:
+# imagePullSecrets:
+#   - name: ghcr-secret
+
+app:
+  workdir: /var/www/html
+  publicDir: /var/www/html/public
+
+service:
+  type: ClusterIP
+  port: 80
+
+resources: {}
