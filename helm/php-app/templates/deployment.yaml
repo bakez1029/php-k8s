@@ -49,18 +49,6 @@ spec:
               subPath: default.conf
             - name: app-shared
               mountPath: {{ .Values.app.workdir }}
-          readinessProbe:
-            httpGet:
-              path: /
-              port: 8080
-            initialDelaySeconds: 5
-            periodSeconds: 10
-          livenessProbe:
-            httpGet:
-              path: /
-              port: 8080
-            initialDelaySeconds: 20
-            periodSeconds: 20
 
         # PHP-FPM container
         - name: php-fpm
