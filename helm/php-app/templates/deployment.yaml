@@ -58,12 +58,15 @@ spec:
             - name: fpm
               containerPort: 9000
               protocol: TCP
+
+          envFrom:
+            - secretRef:
+                name: php-app-env
+
           volumeMounts:
             - name: app-shared
               mountPath: {{ .Values.app.workdir }}
-            - name: env-file
-              mountPath: {{ .Values.app.workdir }}/.env
-              subPath: .env
+
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
 
@@ -74,7 +77,3 @@ spec:
 
         - name: app-shared
           emptyDir: {}
-
-        - name: env-file
-          secret:
-            secretName: php-app-env
